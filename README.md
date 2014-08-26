@@ -5,3 +5,13 @@ base-js
 
 # APIs
 
+* noStacking
+* Class
+* Base
+* Event
+* Attr
+* List
+* Widget
+* Progress
+* Hash
+
