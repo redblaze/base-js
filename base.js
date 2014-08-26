@@ -527,6 +527,173 @@ var $C = function(namespace, namespaceName) {
         }
     });
 
+    var Batch = Class({
+        _init: function() {
+            this._queue = [];
+        },
+
+        _interpretQueue: function() {
+            var requests = [];
+            var cbs = [];
+
+            for (var i = 0; i < this._queue.length; i++) {
+                requests.push(this._queue[i]['request']);
+                cbs.push(this._queue[i]['cb']);
+            }
+
+            this._queue = [];
+
+            return {
+                requests: requests,
+                cbs: cbs
+            };
+        },
+
+        handleRequestNow: function(request, cb) {
+            var me = this;
+
+            me._queue.push({
+                request: request,
+                cb: cb
+            });
+
+            me._sendRequests();
+        },
+
+        handleRequest: function(request, cb) {
+            var me = this;
+
+            if (me._queue.length == 0) {
+                setTimeout(function() {
+                    me._sendRequests();
+                }, 0);
+            }
+
+            me._queue.push({
+                request: request,
+                cb: cb
+            });
+        },
+
+        _applyErrorToCbs: function(cbs, err) {
+            for (var i = 0; i < cbs.length; i++) {
+                cbs[i](err);
+            }
+        },
+
+        _applyDataToCbs: function(cbs, data) {
+            for (var i = 0; i < cbs.length; i++) {
+                cbs[i](null, data[i]);
+            }
+        },
+
+        _sendRequests: function() {
+            var me = this;
+
+            var qRes = me._interpretQueue();
+            var requests = qRes['requests'];
+            var cbs = qRes['cbs'];
+
+            me._remote(requests, function(err, res) {
+                if (err) {
+                    me._applyErrorToCbs(cbs, err);
+                } else {
+                    if (res['status'] == 'ok') {
+                        me._applyDataToCbs(cbs, res['data']);
+                    } else { // res['status'] == 'error'
+                        me._applyErrorToCbs(cbs, res['error']);
+                    }
+                }
+            });
+        },
+
+        _remote: function(requests, cb) {
+            throw new Error('Batch._remote is a virtual protected API that must be overridden.');
+        }
+    });
+
+    var CachingUnit = Class({
+        _init: function(proc) {
+            this._proc = proc;
+            this._status = 'start';
+            this._cachedData = null;
+            this._cbs = [];
+        },
+
+        _applyErrorToCbs: function(cbs, err) {
+            var cbs = this._cbs;
+            this._cbs = [];
+
+            for (var i = 0; i < cbs.length; i++) {
+                cbs[i](err);
+            }
+        },
+
+        _applyResToCbs: function(cbs, res) {
+            var cbs = this._cbs;
+            this._cbs = [];
+
+            for (var i = 0; i < cbs.length; i++) {
+                cbs[i](null, res);
+            }
+        },
+
+        _runProc: function() {
+            var me = this;
+
+            me._status = 'loading';
+
+            me._proc(function(err, res) {
+                if (err) {
+                    me._status = 'error';
+                    me._applyErrorToCbs(err);
+                } else {
+                    me._cachedData = res;
+                    me._status = 'loaded';
+                    me._applyResToCbs(res);
+                }
+            });
+        },
+
+        run: function(cb) {
+            var me = this;
+
+            switch(me._status) {
+                case 'start':
+                    me._cbs.push(cb);
+                    me._runProc();
+                    break;
+                case 'loading':
+                    me._cbs.push(cb);
+                    break;
+                case 'loaded':
+                    cb(null, me._cachedData);
+                    break;
+                case 'error':
+                    me._cbs.push(cb);
+                    me._runProc();
+                    break;
+                default:
+                    throw new Error('unrecognized status in Cache: ' + me._status);
+            }
+        }
+    });
+
+    var Cache = Class({
+        _init: function(proc) {
+            this._proc = proc;
+            this._unit = new CachingUnit(proc);
+        },
+
+        dirty: function() {
+            this._unit = new CachingUnit(this._proc);
+        },
+
+        run: function(cb) {
+            this._unit.run(cb);
+        }
+    });
+
     var package = {
         'randomSeed': randomSeed,
         'noStacking': noStacking,
@@ -536,6 +703,8 @@ var $C = function(namespace, namespaceName) {
         'Attr': Attr,
         'List': List,
         'Widget': Widget,
+        'Batch': Batch,
+        'Cache': Cache,
         'Progress': new Progress(),
         'Hash': new Hash()
     };
