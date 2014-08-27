@@ -617,7 +617,7 @@ var $C = function(namespace, namespaceName) {
             this._cbs = [];
         },
 
-        _applyErrorToCbs: function(cbs, err) {
+        _applyErrorToCbs: function(err) {
             var cbs = this._cbs;
             this._cbs = [];
 
@@ -626,7 +626,7 @@ var $C = function(namespace, namespaceName) {
             }
         },
 
-        _applyResToCbs: function(cbs, res) {
+        _applyResToCbs: function(res) {
             var cbs = this._cbs;
             this._cbs = [];
 
