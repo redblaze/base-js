@@ -528,8 +528,9 @@ var $C = function(namespace, namespaceName) {
     });
 
     var Batch = Class({
-        _init: function() {
+        _init: function(cfg) {
             this._queue = [];
+            this._remote = cfg['remote'];
         },
 
         _interpretQueue: function() {
@@ -583,7 +584,11 @@ var $C = function(namespace, namespaceName) {
 
         _applyDataToCbs: function(cbs, data) {
             for (var i = 0; i < cbs.length; i++) {
-                cbs[i](null, data[i]);
+                if (data[i]['status'] == 'ok') {
+                    cbs[i](null, data[i]['data']);
+                } else { // data[i]['status'] == 'error'
+                    cbs[i](data[i]['error']);
+                }
             }
         },
 
@@ -598,17 +603,9 @@ var $C = function(namespace, namespaceName) {
                 if (err) {
                     me._applyErrorToCbs(cbs, err);
                 } else {
-                    if (res['status'] == 'ok') {
-                        me._applyDataToCbs(cbs, res['data']);
-                    } else { // res['status'] == 'error'
-                        me._applyErrorToCbs(cbs, res['error']);
-                    }
+                    me._applyDataToCbs(cbs, res);
                 }
             });
-        },
-
-        _remote: function(requests, cb) {
-            throw new Error('Batch._remote is a virtual protected API that must be overridden.');
         }
     });
 
