@@ -150,8 +150,14 @@ var $C = function(namespace, namespaceName) {
             var oldV = this._value;
             this._value = v;
 
+            var followers = [];
+
             for (var i = 0; i < this._followers.length; i++) {
-                this._followers[i].set(v);
+                followers.push(this._followers[i]);
+            }
+
+            for (var i = 0; i < followers.length; i++) {
+                followers[i].set(v);
             }
 
             this._changeEvent.fire(v, oldV);
